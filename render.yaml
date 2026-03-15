@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: botdash
+    env: docker
+    plan: free
+    envVars:
+      - key: DASHBOARD_PASSWORD
+        value: changeme123
+      - key: SECRET_KEY
+        value: supersecretkey456

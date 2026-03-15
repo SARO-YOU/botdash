@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BotDash</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#080810;--surface:#0f0f1a;--surface2:#161625;--border:#252538;
+  --accent:#7c6af7;--accent2:#f76a8a;--text:#e8e8f4;--muted:#5a5a7a;
+  --green:#3df5a0;--yellow:#f5c842;--red:#f56a6a;--blue:#6ab4f5;
+}
+body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-height:100vh}
+
+/* ── Grid bg ── */
+body::before{
+  content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+  background-image:linear-gradient(rgba(124,106,247,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(124,106,247,.04) 1px,transparent 1px);
+  background-size:48px 48px;
+}
+
+/* ── Layout ── */
+.layout{display:flex;min-height:100vh;position:relative;z-index:1}
+
+/* ── Sidebar ── */
+.sidebar{
+  width:220px;flex-shrink:0;background:var(--surface);
+  border-right:1px solid var(--border);padding:20px 12px;
+  display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:10;
+}
+.logo{display:flex;align-items:center;gap:10px;padding:4px 8px;margin-bottom:28px}
+.logo-icon{width:32px;height:32px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px}
+.logo-text{font-size:17px;font-weight:800;letter-spacing:-.3px}
+.logo-text span{color:var(--accent)}
+.nav-label{font-size:10px;font-family:'Space Mono',monospace;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;padding:0 8px;margin:16px 0 6px}
+.nav-item{display:flex;align-items:center;gap:9px;padding:9px 12px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;color:var(--muted);transition:all .15s;text-decoration:none}
+.nav-item:hover,.nav-item.active{background:rgba(124,106,247,.12);color:var(--text)}
+.nav-item.active{color:var(--accent)}
+.sidebar-footer{margin-top:auto}
+.logout{display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:8px;font-size:13px;font-weight:600;color:var(--muted);text-decoration:none;transition:all .15s}
+.logout:hover{color:var(--red);background:rgba(245,106,106,.08)}
+
+/* ── Main ── */
+.main{margin-left:220px;flex:1;padding:28px 32px;max-width:calc(100vw - 220px)}
+.topbar{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:28px}
+.page-title{font-size:24px;font-weight:800;letter-spacing:-.5px}
+.page-sub{color:var(--muted);font-size:12px;font-family:'Space Mono',monospace;margin-top:3px}
+
+/* ── Stats ── */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:28px}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px 20px}
+.stat-label{font-size:10px;font-family:'Space Mono',monospace;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+.stat-value{font-size:26px;font-weight:800}
+.stat-value.green{color:var(--green)}
+.stat-value.purple{color:var(--accent)}
+
+/* ── Upload ── */
+.upload-zone{
+  background:var(--surface);border:2px dashed var(--border);border-radius:12px;
+  padding:28px;text-align:center;cursor:pointer;transition:all .2s;margin-bottom:28px;
+}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--accent);background:rgba(124,106,247,.05)}
+.upload-icon{font-size:32px;margin-bottom:10px}
+.upload-title{font-size:15px;font-weight:700;margin-bottom:4px}
+.upload-sub{font-size:12px;color:var(--muted);font-family:'Space Mono',monospace}
+#file-input{display:none}
+.upload-bar{display:none;margin-top:14px}
+.bar-track{height:3px;background:var(--border);border-radius:2px;overflow:hidden}
+.bar-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));width:0%;transition:width .3s}
+.upload-msg{margin-top:8px;font-size:12px;font-family:'Space Mono',monospace;color:var(--muted)}
+
+/* ── Bots ── */
+.section-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.section-title{font-size:15px;font-weight:700}
+.bots-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px}
+
+.bot-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:border-color .2s}
+.bot-card:hover{border-color:rgba(124,106,247,.35)}
+.bot-card.running{border-color:rgba(61,245,160,.25)}
+.bot-card.waiting_qr{border-color:rgba(245,200,66,.4);animation:qr-pulse 2s infinite}
+.bot-card.connected{border-color:rgba(61,245,160,.5)}
+@keyframes qr-pulse{0%,100%{box-shadow:0 0 0 0 rgba(245,200,66,.2)}50%{box-shadow:0 0 0 6px rgba(245,200,66,0)}}
+
+.bot-head{padding:14px 18px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)}
+.bot-info{display:flex;align-items:center;gap:10px}
+.bot-ava{width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:17px;background:var(--surface2)}
+.bot-ava.python{background:rgba(61,245,160,.1)}
+.bot-ava.node{background:rgba(124,106,247,.1)}
+.bot-name{font-size:13px;font-weight:700}
+.bot-meta{font-size:10px;font-family:'Space Mono',monospace;color:var(--muted);margin-top:2px}
+
+.badge{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:20px;font-size:10px;font-family:'Space Mono',monospace;font-weight:700}
+.badge.running{background:rgba(61,245,160,.1);color:var(--green)}
+.badge.stopped{background:rgba(90,90,122,.15);color:var(--muted)}
+.badge.error{background:rgba(245,106,106,.1);color:var(--red)}
+.badge.starting{background:rgba(106,180,245,.1);color:var(--blue)}
+.badge.installing{background:rgba(247,200,66,.12);color:var(--yellow)}
+.btn-start:disabled{opacity:.35;cursor:not-allowed;transform:none}
+.badge.waiting_qr{background:rgba(245,200,66,.12);color:var(--yellow)}
+.badge.connected{background:rgba(61,245,160,.15);color:var(--green)}
+.dot{width:5px;height:5px;border-radius:50%;background:currentColor}
+.badge.running .dot,.badge.connected .dot{animation:blink 1.4s infinite}
+.badge.waiting_qr .dot{animation:blink .8s infinite}
+.btn-full{width:100%;padding:12px;border-radius:8px;background:var(--green);
+  color:#000;border:none;cursor:pointer;font-weight:700;font-size:.9rem;
+  font-family:'Space Mono',monospace;transition:opacity .15s;}
+.btn-full:hover{opacity:.85;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+
+.bot-body{padding:14px 18px}
+.bot-actions{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:10px}
+.btn{padding:7px 12px;border-radius:7px;border:none;cursor:pointer;font-family:'Syne',sans-serif;font-size:11px;font-weight:700;transition:all .15s;display:inline-flex;align-items:center;gap:4px}
+.btn-start{background:rgba(61,245,160,.12);color:var(--green)}
+.btn-start:hover{background:rgba(61,245,160,.22)}
+.btn-stop{background:rgba(245,106,106,.12);color:var(--red)}
+.btn-stop:hover{background:rgba(245,106,106,.22)}
+.btn-qr{background:rgba(245,200,66,.12);color:var(--yellow)}
+.btn-qr:hover{background:rgba(245,200,66,.22)}
+.btn-logs{background:rgba(124,106,247,.12);color:var(--accent)}
+.btn-logs:hover{background:rgba(124,106,247,.22)}
+.btn-env{background:rgba(106,180,245,.12);color:var(--blue)}
+.btn-env:hover{background:rgba(106,180,245,.22)}
+.btn-del{background:rgba(90,90,122,.12);color:var(--muted);margin-left:auto}
+.btn-del:hover{background:rgba(245,106,106,.12);color:var(--red)}
+
+/* ── Log panel ── */
+.log-panel{display:none;margin-top:8px;background:var(--bg);border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.log-panel.open{display:block}
+.log-toolbar{padding:7px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.log-title-small{font-size:10px;font-family:'Space Mono',monospace;color:var(--muted)}
+.log-clr{font-size:10px;font-family:'Space Mono',monospace;color:var(--muted);cursor:pointer;background:none;border:none;padding:0}
+.log-clr:hover{color:var(--text)}
+.log-out{padding:10px 12px;height:180px;overflow-y:auto;font-family:'Space Mono',monospace;font-size:10px;line-height:1.7;color:#8888aa}
+.log-out::-webkit-scrollbar{width:3px}
+.log-out::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.log-line.warn{color:var(--yellow)}
+.log-line.ok{color:var(--green)}
+.log-line.err{color:var(--red)}
+.log-input-row{display:flex;gap:6px;padding:8px 12px;border-top:1px solid var(--border);background:var(--surface)}
+.log-input{flex:1;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:7px 10px;color:var(--text);font-family:'Space Mono',monospace;font-size:11px;outline:none}
+.log-input:focus{border-color:var(--accent)}
+.log-send{padding:7px 14px;background:var(--accent);color:#fff;border:none;border-radius:6px;font-family:'Syne',sans-serif;font-size:11px;font-weight:700;cursor:pointer}
+.log-send:hover{opacity:.85}
+
+/* ── QR Modal ── */
+.modal-bg{display:none;position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.75);align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.phone-input{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:13px 15px;color:var(--text);font-family:'Space Mono',monospace;font-size:16px;outline:none;transition:border-color .2s;margin-bottom:8px;letter-spacing:2px}
+.phone-input:focus{border-color:var(--green)}
+.modal-bg.open{display:flex}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:32px;width:420px;max-width:95vw;animation:popIn .2s ease}
+@keyframes popIn{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}
+.modal-title{font-size:20px;font-weight:800;margin-bottom:4px}
+.modal-sub{font-size:12px;font-family:'Space Mono',monospace;color:var(--muted);margin-bottom:24px}
+
+.qr-area{display:flex;flex-direction:column;align-items:center;gap:16px}
+.qr-box{
+  width:260px;height:260px;background:#fff;border-radius:12px;
+  display:flex;align-items:center;justify-content:center;
+  position:relative;overflow:hidden;
+}
+.qr-box canvas,.qr-box img{border-radius:8px}
+.qr-placeholder{text-align:center;color:#999;font-size:13px}
+.qr-placeholder .spin{font-size:28px;animation:spin 1.5s linear infinite;display:block;margin-bottom:8px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.qr-status-text{font-size:13px;font-family:'Space Mono',monospace;text-align:center}
+.qr-status-text.waiting{color:var(--yellow)}
+.qr-status-text.connected{color:var(--green)}
+.qr-status-text.starting{color:var(--blue)}
+
+.qr-steps{background:var(--surface2);border-radius:8px;padding:14px 16px;width:100%;font-size:12px;font-family:'Space Mono',monospace;color:var(--muted);line-height:2}
+.qr-steps span{color:var(--text)}
+
+.modal-close{width:100%;margin-top:16px;padding:11px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--muted);font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s}
+.modal-close:hover{color:var(--text);border-color:var(--accent)}
+
+/* ── Env Modal ── */
+.env-modal{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px;width:480px;max-width:95vw;animation:popIn .2s ease}
+.env-title{font-size:18px;font-weight:800;margin-bottom:4px}
+.env-sub{font-size:11px;font-family:'Space Mono',monospace;color:var(--muted);margin-bottom:16px}
+textarea{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;color:var(--text);font-family:'Space Mono',monospace;font-size:11px;line-height:1.7;resize:vertical;min-height:160px;outline:none;transition:border-color .2s}
+textarea:focus{border-color:var(--accent)}
+.modal-btns{display:flex;gap:8px;margin-top:14px;justify-content:flex-end}
+.btn-primary{padding:10px 20px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:opacity .2s}
+.btn-primary:hover{opacity:.85}
+.btn-sec{padding:10px 18px;background:var(--surface2);color:var(--muted);border:1px solid var(--border);border-radius:8px;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer}
+
+/* ── Toast ── */
+.toasts{position:fixed;bottom:20px;right:20px;z-index:200;display:flex;flex-direction:column;gap:8px}
+.toast{padding:11px 16px;background:var(--surface);border:1px solid var(--border);border-radius:8px;font-size:12px;font-family:'Space Mono',monospace;animation:slideIn .25s ease;max-width:280px}
+.toast.success{border-color:rgba(61,245,160,.4);color:var(--green)}
+.toast.error{border-color:rgba(245,106,106,.4);color:var(--red)}
+.toast.info{border-color:rgba(124,106,247,.4);color:var(--accent)}
+@keyframes slideIn{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:translateX(0)}}
+
+.empty{text-align:center;padding:50px 20px;color:var(--muted);font-family:'Space Mono',monospace;font-size:12px;grid-column:1/-1}
+.empty-icon{font-size:36px;margin-bottom:10px}
+
+@media(max-width:768px){
+  .sidebar{display:none}
+  .main{margin-left:0;max-width:100vw;padding:16px}
+  .stats{grid-template-columns:repeat(2,1fr)}
+}
+</style>
+</head>
+<body>
+<div class="layout">
+
+<!-- Sidebar -->
+<aside class="sidebar">
+  <div class="logo">
+    <div class="logo-icon">🤖</div>
+    <div class="logo-text">Bot<span>Dash</span></div>
+  </div>
+  <div class="nav-label">Menu</div>
+  <a class="nav-item active" href="#">⚡ Bots</a>
+  <a class="nav-item" href="/status" target="_blank">💓 Status</a>
+  <div class="sidebar-footer">
+    <a class="logout" href="/logout">↩ Logout</a>
+  </div>
+</aside>
+
+<!-- Main -->
+<main class="main">
+  <div class="topbar">
+    <div>
+      <div class="page-title">Bot Manager</div>
+      <div class="page-sub">// upload zip → scan QR → run 24/7</div>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats">
+    <div class="stat"><div class="stat-label">Total Bots</div><div class="stat-value purple" id="s-total">{{ bots|length }}</div></div>
+    <div class="stat"><div class="stat-label">Running</div><div class="stat-value green" id="s-running">{{ bots|selectattr('status','in',['running','connected','waiting_qr'])|list|length }}</div></div>
+    <div class="stat"><div class="stat-label">Python</div><div class="stat-value" id="s-python">{{ bots|selectattr('type','eq','python')|list|length }}</div></div>
+    <div class="stat"><div class="stat-label">Node.js</div><div class="stat-value" id="s-node">{{ bots|selectattr('type','eq','node')|list|length }}</div></div>
+  </div>
+
+  <!-- Upload -->
+  <div class="upload-zone" id="upload-zone">
+    <input type="file" id="file-input" accept=".zip">
+    <div class="upload-icon">📦</div>
+    <div class="upload-title">Drop your bot ZIP here</div>
+    <div class="upload-sub">Python & Node.js supported — auto-installs dependencies</div>
+    <div class="upload-bar" id="upload-bar">
+      <div class="bar-track"><div class="bar-fill" id="bar-fill"></div></div>
+      <div class="upload-msg" id="upload-msg">Uploading...</div>
+    </div>
+  </div>
+
+  <!-- Bots -->
+  <div class="section-hdr"><div class="section-title">Your Bots</div></div>
+  <div class="bots-grid" id="bots-grid">
+    {% if bots %}
+      {% for bot in bots %}
+      <div class="bot-card {{ bot.status }}" id="card-{{ bot.name }}">
+        <div class="bot-head">
+          <div class="bot-info">
+            <div class="bot-ava {{ bot.type }}">{% if bot.type=='python' %}🐍{% elif bot.type=='node' %}🟢{% else %}🤖{% endif %}</div>
+            <div>
+              <div class="bot-name">{{ bot.name }}</div>
+              <div class="bot-meta">{{ bot.type }}{% if bot.entry %} • {{ bot.entry }}{% endif %}</div>
+            </div>
+          </div>
+          <span class="badge {{ bot.status }}" id="badge-{{ bot.name }}">
+            <span class="dot"></span>{{ bot.status }}
+          </span>
+        </div>
+        <div class="bot-body">
+          <div class="bot-actions">
+            <button class="btn btn-start" id="start-{{ bot.name }}" onclick="startBot('{{ bot.name }}')" {% if bot.status == 'installing' %}disabled{% endif %}>{% if bot.status == 'installing' %}⏳ Installing...{% else %}▶ Start{% endif %}</button>
+            <button class="btn btn-stop" onclick="stopBot('{{ bot.name }}')">⏹ Stop</button>
+            <button class="btn btn-qr" onclick="smartConnect('{{ bot.name }}')">📱 Connect</button>
+            <button class="btn btn-logs" onclick="toggleLogs('{{ bot.name }}')">📋 Logs</button>
+            <button class="btn btn-env" onclick="openEnv('{{ bot.name }}')">⚙ Env</button>
+            <button class="btn btn-del" onclick="deleteBot('{{ bot.name }}')">🗑</button>
+          </div>
+          <div class="log-panel" id="logs-{{ bot.name }}">
+            <div class="log-toolbar">
+              <span class="log-title-small">// live output</span>
+              <button class="log-clr" onclick="clearLogs('{{ bot.name }}')">clear</button>
+            </div>
+            <div class="log-out" id="log-out-{{ bot.name }}">No logs yet.</div>
+            <div class="log-input-row">
+              <input class="log-input" id="log-input-{{ bot.name }}" placeholder="Type input and press Enter (e.g. phone number)..." onkeydown="if(event.key==='Enter')sendInput('{{ bot.name }}')">
+              <button class="log-send" onclick="sendInput('{{ bot.name }}')">Send</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    {% else %}
+      <div class="empty"><div class="empty-icon">📭</div>No bots yet. Upload a ZIP to get started.</div>
+    {% endif %}
+  </div>
+</main>
+</div>
+
+<!-- QR Modal -->
+<div class="modal-bg" id="qr-modal">
+  <div class="modal">
+    <div class="modal-title">📱 Scan QR Code</div>
+    <div class="modal-sub" id="qr-bot-name">// bot name</div>
+    <div class="qr-area">
+      <div class="qr-box" id="qr-box">
+        <div class="qr-placeholder">
+          <span class="spin">⏳</span>
+          Starting bot...<br>QR will appear here
+        </div>
+      </div>
+      <div class="qr-status-text starting" id="qr-status-txt">Starting bot, please wait...</div>
+      <div class="qr-steps">
+        1. Open <span>WhatsApp</span> on your phone<br>
+        2. Tap <span>⋮ Menu → Linked Devices</span><br>
+        3. Tap <span>Link a Device</span><br>
+        4. Scan the QR code above
+      </div>
+    </div>
+    <button class="modal-close" onclick="closeQR()">Close</button>
+  </div>
+</div>
+
+<!-- Phone Modal -->
+<div class="modal-bg" id="phone-modal">
+  <div class="modal">
+    <div class="modal-title">📱 Enter Phone Number</div>
+    <div class="modal-sub" id="phone-modal-sub">// bot name</div>
+    <div class="qr-area">
+      <div style="text-align:center;font-size:13px;color:var(--muted);font-family:'Space Mono',monospace;margin-bottom:16px">
+        Enter your WhatsApp number to get a pairing code
+      </div>
+      <input class="phone-input" id="phone-input" type="tel" placeholder="254712345678" maxlength="15">
+      <div style="font-size:11px;color:var(--muted);font-family:'Space Mono',monospace;text-align:center">
+        Include country code — no + or spaces<br>Kenya: 254712345678
+      </div>
+    </div>
+    <div class="modal-btns" style="margin-top:20px">
+      <button class="btn-sec" onclick="closePhone()">Cancel</button>
+      <button class="btn-primary" onclick="confirmPhone()">Start Bot →</button>
+    </div>
+  </div>
+</div>
+
+<!-- Env Modal -->
+<div class="modal-bg" id="env-modal">
+  <div class="env-modal">
+    <div class="env-title">⚙ Environment Variables</div>
+    <div class="env-sub" id="env-modal-sub">// bot name</div>
+    <textarea id="env-txt" placeholder="TOKEN=your_token&#10;API_KEY=abc123&#10;PREFIX=!&#10;OWNER=1234567890"></textarea>
+    <div class="modal-btns">
+      <button class="btn-sec" onclick="closeEnv()">Cancel</button>
+      <button class="btn-primary" onclick="saveEnv()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toasts -->
+<div class="toasts" id="toasts"></div>
+
+<script>
+// ── State ──────────────────────────────────────────────
+const wsConnections = {};
+const logOffsets = {};
+let currentQRBot = null;
+let currentEnvBot = null;
+let qrCodeObj = null;
+
+// ── WebSocket per bot ──────────────────────────────────
+function connectWS(botName) {
+  if (wsConnections[botName]) return;
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  const ws = new WebSocket(`${proto}://${location.host}/ws/${botName}`);
+  wsConnections[botName] = ws;
+
+  ws.onmessage = (e) => {
+    const data = JSON.parse(e.data);
+    if (data.type === 'qr') {
+      handleQR(botName, data.qr);
+    } else if (data.type === 'connected') {
+      handleConnected(botName);
+    } else if (data.type === 'install_done') {
+      const btn = document.getElementById('start-' + botName);
+      if (btn) { btn.disabled = false; btn.textContent = '▶ Start'; }
+      setBadge(botName, 'stopped');
+      toast(botName + ': Ready to start! ✅', 'success');
+    } else if (data.type === 'stopped') {
+      setBadge(botName, 'stopped');
+    } else if (data.type === 'status') {
+      setBadge(botName, data.status);
+    } else if (data.type === 'log') {
+      appendLog(botName, data.line);
+      // Auto-detect pairing code in log stream and update modal
+      if (data.line && data.line.includes('PAIRING CODE:')) {
+        const match = data.line.match(/PAIRING CODE:\s*([A-Z0-9\-]{6,})/i);
+        if (match) {
+          const code = match[1].trim();
+          // Update pairing modal if open
+          const codeEl = document.getElementById('pairing-code-display');
+          const noticeEl = document.getElementById('pairing-code-notice');
+          if (codeEl) { codeEl.textContent = code; codeEl.style.display = 'block'; }
+          if (noticeEl) noticeEl.style.display = 'none';
+          // Also open the modal automatically so user doesn't miss it
+          const pModal = document.getElementById('pairing-modal');
+          if (pModal && !pModal.classList.contains('open')) {
+            pModal.classList.add('open');
+          }
+          toast(`📱 Pairing code ready for ${botName}: ${code}`, 'success');
+        }
+      }
+    }
+  };
+
+  ws.onclose = () => {
+    delete wsConnections[botName];
+    setTimeout(() => connectWS(botName), 3000);
+  };
+}
+
+function handleQR(botName, qrRaw) {
+  setBadge(botName, 'waiting_qr');
+  toast(`${botName}: QR ready — scan now!`, 'info');
+
+  if (currentQRBot === botName) {
+    renderQRCode(qrRaw);
+    document.getElementById('qr-status-txt').className = 'qr-status-text waiting';
+    document.getElementById('qr-status-txt').textContent = 'Scan this QR code with WhatsApp';
+  }
+}
+
+function handleConnected(botName) {
+  setBadge(botName, 'connected');
+  toast(`${botName}: Connected! ✅`, 'success');
+  if (currentQRBot === botName) {
+    document.getElementById('qr-box').innerHTML = '<div style="font-size:60px">✅</div>';
+    document.getElementById('qr-status-txt').className = 'qr-status-text connected';
+    document.getElementById('qr-status-txt').textContent = 'WhatsApp connected! Bot is running.';
+    setTimeout(() => closeQR(), 2500);
+  }
+}
+
+function renderQRCode(text) {
+  const box = document.getElementById('qr-box');
+  box.innerHTML = '';
+  try {
+    new QRCode(box, {
+      text: text.replace(/\s+/g, '').substring(0, 500) || text,
+      width: 240,
+      height: 240,
+      colorDark: '#000000',
+      colorLight: '#ffffff',
+      correctLevel: QRCode.CorrectLevel.M
+    });
+  } catch(e) {
+    // fallback: show raw text as pre
+    box.innerHTML = `<pre style="font-size:5px;line-height:1;color:#000;padding:8px;background:#fff;border-radius:4px;overflow:hidden;max-width:250px;max-height:250px">${text}</pre>`;
+  }
+}
+
+// ── Bot Actions ────────────────────────────────────────
+let currentPhoneBot = null
+
+function startBot(name) {
+  currentPhoneBot = name
+  document.getElementById('phone-modal-sub').textContent = '// ' + name
+  document.getElementById('phone-input').value = ''
+  document.getElementById('phone-modal').classList.add('open')
+  setTimeout(() => document.getElementById('phone-input').focus(), 100)
+}
+
+function closePhone() {
+  document.getElementById('phone-modal').classList.remove('open')
+  currentPhoneBot = null
+}
+
+function confirmPhone() {
+  const phone = document.getElementById('phone-input').value.trim().replace(/[^0-9]/g, '')
+  if (!phone || phone.length < 9) return toast('Enter a valid phone number!', 'error')
+  const name = currentPhoneBot
+  closePhone()
+  // Save phone to bot
+  fetch('/bot/phone/' + name, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({phone: phone})
+  }).then(() => {
+    fetch('/bot/start/' + name, {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'})
+      .then(r => r.json())
+      .then(d => {
+        if (d.success) {
+          setBadge(name, 'starting')
+          toast('✅ Bot starting — check logs for your PAIRING CODE!', 'info')
+          connectWS(name)
+          // Show pairing code notice — NOT QR modal
+          showPairingNotice(name)
+        } else {
+          toast(d.error, 'error')
+        }
+      })
+  })
+}
+
+function stopBot(name) {
+  fetch(`/bot/stop/${name}`, {method:'POST'})
+    .then(r => r.json())
+    .then(d => {
+      if (d.success) { setBadge(name, 'stopped'); toast(`${name} stopped`, 'success'); }
+      else toast(d.error, 'error');
+    });
+}
+
+function deleteBot(name) {
+  if (!confirm(`Delete "${name}"? Cannot be undone.`)) return;
+  fetch(`/bot/delete/${name}`, {method:'POST'})
+    .then(r => r.json())
+    .then(d => {
+      if (d.success) { document.getElementById(`card-${name}`)?.remove(); toast(`${name} deleted`, 'success'); }
+    });
+}
+
+function setBadge(name, status) {
+  const badge = document.getElementById(`badge-${name}`);
+  const card = document.getElementById(`card-${name}`);
+  if (!badge) return;
+  badge.className = `badge ${status}`;
+  badge.innerHTML = `<span class="dot"></span>${status}`;
+  if (card) {
+    card.className = `bot-card ${status}`;
+  }
+}
+
+// ── QR Modal ───────────────────────────────────────────
+function openQR(name) {
+  currentQRBot = name;
+  document.getElementById('qr-bot-name').textContent = `// ${name}`;
+  document.getElementById('qr-modal').classList.add('open');
+
+  const status = document.getElementById(`badge-${name}`)?.textContent?.trim().replace(/.*/, s => s.split('\n').pop().trim()) || 'stopped';
+
+  // Reset box
+  document.getElementById('qr-box').innerHTML = `<div class="qr-placeholder"><span class="spin">⏳</span>Waiting for QR code...</div>`;
+  document.getElementById('qr-status-txt').className = 'qr-status-text starting';
+  document.getElementById('qr-status-txt').textContent = 'Starting bot, QR will appear here...';
+
+  connectWS(name);
+
+  // Check if QR already available
+  fetch(`/bot/qr/${name}`)
+    .then(r => r.json())
+    .then(d => {
+      if (d.status === 'connected') {
+        handleConnected(name);
+      } else if (d.qr) {
+        handleQR(name, d.qr);
+      } else if (d.status === 'waiting_qr') {
+        document.getElementById('qr-status-txt').textContent = 'Bot running, waiting for QR...';
+      }
+    });
+}
+
+function closeQR() {
+  document.getElementById('qr-modal').classList.remove('open');
+  currentQRBot = null;
+}
+
+// ── Logs ───────────────────────────────────────────────
+function toggleLogs(name) {
+  const panel = document.getElementById(`logs-${name}`);
+  panel.classList.toggle('open');
+  if (panel.classList.contains('open')) connectWS(name);
+}
+
+function appendLog(name, line) {
+  const el = document.getElementById(`log-out-${name}`);
+  if (!el) return;
+  if (el.textContent === 'No logs yet.') el.textContent = '';
+  const div = document.createElement('div');
+  div.className = 'log-line';
+  div.textContent = line;
+  if (line.includes('⚠') || line.includes('warn') || line.includes('WARN')) div.classList.add('warn');
+  if (line.includes('🟢') || line.includes('connected') || line.includes('✅')) div.classList.add('ok');
+  if (line.includes('🔴') || line.includes('error') || line.includes('ERROR')) div.classList.add('err');
+  // Highlight pairing code lines so they can't be missed
+  if (line.includes('PAIRING CODE:')) {
+    div.style.cssText = 'background:rgba(74,222,128,.15);border:1px solid rgba(74,222,128,.3);border-radius:6px;padding:6px 10px;font-size:1.1rem;font-weight:700;color:#4ade80;letter-spacing:2px;';
+  }
+  el.appendChild(div);
+  el.scrollTop = el.scrollHeight;
+}
+
+function clearLogs(name) {
+  const el = document.getElementById(`log-out-${name}`);
+  if (el) el.textContent = 'No logs yet.';
+}
+
+// ── Env Modal ──────────────────────────────────────────
+function openEnv(name) {
+  currentEnvBot = name;
+  document.getElementById('env-modal-sub').textContent = `// ${name}`;
+  fetch(`/bot/env/${name}`).then(r => r.json()).then(d => {
+    document.getElementById('env-txt').value = d.env || '';
+    document.getElementById('env-modal').classList.add('open');
+  });
+}
+
+function closeEnv() {
+  document.getElementById('env-modal').classList.remove('open');
+  currentEnvBot = null;
+}
+
+function saveEnv() {
+  if (!currentEnvBot) return;
+  fetch(`/bot/env/${currentEnvBot}`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({env: document.getElementById('env-txt').value})
+  }).then(() => { closeEnv(); toast('Env saved ✅', 'success'); });
+}
+
+// Close modals on backdrop click
+document.getElementById('phone-modal').addEventListener('click', e => { if(e.target===document.getElementById('phone-modal')) closePhone(); })
+document.getElementById('qr-modal').addEventListener('click', e => { if(e.target===document.getElementById('qr-modal')) closeQR(); });
+
+// ── Smart Connect: phone-number bots show pairing notice, QR bots show QR modal
+function smartConnect(name) {
+  const logs = document.getElementById('log-' + name)
+  const logText = logs ? logs.innerText : ''
+  // If logs already have QR chars → open QR modal
+  const hasQR = /[█▀▄■▌▐░▒▓]/.test(logText)
+  // If logs have a pairing code already → show pairing notice
+  const hasPairing = logText.includes('PAIRING CODE:')
+  if (hasPairing) {
+    showPairingNotice(name)
+  } else if (hasQR) {
+    openQR(name)
+  } else {
+    // Bot not started yet — open phone modal to start with phone number
+    startBot(name)
+  }
+}
+
+// ── Show pairing code notice — tells user to check logs, no QR popup
+let pairingNoticeBot = null
+function showPairingNotice(name) {
+  pairingNoticeBot = name
+  // Look for the code in the logs
+  const logs = document.getElementById('log-' + name)
+  let code = ''
+  if (logs) {
+    const match = logs.innerText.match(/PAIRING CODE:\s*([A-Z0-9\-]{8,})/i)
+    if (match) code = match[1]
+  }
+  const modal = document.getElementById('pairing-modal')
+  const codeEl = document.getElementById('pairing-code-display')
+  const noticeEl = document.getElementById('pairing-code-notice')
+  if (code) {
+    codeEl.textContent = code
+    codeEl.style.display = 'block'
+    noticeEl.style.display = 'none'
+  } else {
+    codeEl.style.display = 'none'
+    noticeEl.style.display = 'block'
+  }
+  modal.classList.add('open')
+}
+function closePairing() {
+  document.getElementById('pairing-modal').classList.remove('open')
+  pairingNoticeBot = null
+}
+document.addEventListener('DOMContentLoaded', () => {
+  const pm = document.getElementById('pairing-modal')
+  if (pm) pm.addEventListener('click', e => { if(e.target===pm) closePairing() })
+})
+document.getElementById('env-modal').addEventListener('click', e => { if(e.target===document.getElementById('env-modal')) closeEnv(); });
+
+// Phone input Enter key
+document.addEventListener('DOMContentLoaded', () => {
+  const pi = document.getElementById('phone-input')
+  if (pi) pi.addEventListener('keydown', e => { if(e.key==='Enter') confirmPhone() })
+})
+
+// ── Upload ─────────────────────────────────────────────
+const zone = document.getElementById('upload-zone');
+const fi = document.getElementById('file-input');
+zone.addEventListener('click', () => fi.click());
+zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag'); });
+zone.addEventListener('dragleave', () => zone.classList.remove('drag'));
+zone.addEventListener('drop', e => { e.preventDefault(); zone.classList.remove('drag'); if(e.dataTransfer.files[0]) doUpload(e.dataTransfer.files[0]); });
+fi.addEventListener('change', () => { if(fi.files[0]) doUpload(fi.files[0]); });
+
+function doUpload(file) {
+  if (!file.name.endsWith('.zip')) { toast('Only ZIP files!', 'error'); return; }
+  const bar = document.getElementById('upload-bar');
+  const fill = document.getElementById('bar-fill');
+  const msg = document.getElementById('upload-msg');
+  bar.style.display = 'block';
+  fill.style.width = '20%';
+  msg.textContent = `Uploading ${file.name}...`;
+
+  const fd = new FormData();
+  fd.append('file', file);
+
+  fetch('/upload', {method:'POST', body: fd})
+    .then(r => r.json())
+    .then(d => {
+      fill.style.width = '100%';
+      if (d.success) {
+        msg.textContent = `✅ ${d.bot_name} ready! (${d.type}) — ${d.install_log.join(' ')}`;
+        toast(`"${d.bot_name}" uploaded! Click Start then scan QR.`, 'success');
+        setTimeout(() => location.reload(), 1800);
+      } else {
+        msg.textContent = `❌ ${d.error}`;
+        toast(d.error, 'error');
+      }
+    })
+    .catch(() => { msg.textContent = '❌ Upload failed'; toast('Upload failed', 'error'); });
+}
+
+// ── Toast ──────────────────────────────────────────────
+function toast(msg, type='success') {
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = msg;
+  document.getElementById('toasts').appendChild(el);
+  setTimeout(() => el.remove(), 4000);
+}
+
+// ── Send Input to Bot ──────────────────────────────────
+function sendInput(name) {
+  const input = document.getElementById('log-input-' + name);
+  const text = input.value.trim();
+  if (!text) return;
+  fetch('/bot/input/' + name, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({text: text})
+  }).then(r => r.json()).then(d => {
+    if (d.success) {
+      appendLog(name, '[you] ' + text);
+      input.value = '';
+    } else {
+      toast(d.error, 'error');
+    }
+  });
+}
+
+// ── Init: connect WS for running bots ─────────────────
+document.querySelectorAll('.badge.running,.badge.connected,.badge.waiting_qr,.badge.starting,.badge.installing').forEach(b => {
+  const name = b.id.replace('badge-','');
+  connectWS(name);
+});
+</script>
+
+<!-- PAIRING CODE MODAL -->
+<div class="modal-bg" id="pairing-modal">
+  <div class="modal-box" style="max-width:420px;">
+    <div class="modal-title">📱 WhatsApp Pairing Code</div>
+    <div class="modal-sub">// enter code in WhatsApp Linked Devices</div>
+    <div style="margin:20px 0;">
+      <!-- Code found in logs -->
+      <div id="pairing-code-display" style="display:none;
+        font-size:2.2rem;font-weight:700;letter-spacing:8px;text-align:center;
+        color:#4ade80;font-family:'Space Mono',monospace;
+        background:rgba(74,222,128,.08);border:1px solid rgba(74,222,128,.2);
+        border-radius:12px;padding:18px;margin-bottom:16px;">
+      </div>
+      <!-- Code not yet in logs -->
+      <div id="pairing-code-notice" style="text-align:center;color:var(--text-muted);font-size:.88rem;line-height:1.7;">
+        ⏳ Pairing code is being generated...<br>
+        <strong style="color:var(--text);">Check the Logs panel</strong> — it will appear as:<br>
+        <code style="color:#4ade80;font-size:1rem;">✅ PAIRING CODE: XXXX-XXXX</code>
+      </div>
+    </div>
+    <div style="color:var(--text-muted);font-size:.82rem;text-align:center;margin-bottom:20px;line-height:1.7;">
+      1. Open <strong>WhatsApp</strong> on your phone<br>
+      2. Go to <strong>Settings → Linked Devices</strong><br>
+      3. Tap <strong>Link a Device</strong><br>
+      4. Tap <strong>Link with phone number instead</strong><br>
+      5. Enter the code above
+    </div>
+    <button class="btn btn-full" onclick="closePairing()">✓ Got it</button>
+  </div>
+</div>
+
+</body>
+</html>
